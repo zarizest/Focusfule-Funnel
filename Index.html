@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusFuel Interactive Funnel Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive funnel explorer. A horizontal step-navigator allows users to select one of the 6 funnel stages. The main content area dynamically displays a visual mockup of the selected stage alongside a detailed breakdown of its objective, copy, and psychological triggers. This structure was chosen to provide a clear, step-by-step walkthrough of the funnel, linking the visual design directly to the underlying marketing strategy for better comprehension and engagement than a static document. -->
+    <!-- Visualization & Content Choices: Report Info: Funnel stages -> Goal: Organize/Inform -> Viz/Presentation: Interactive stepper navigates between detailed views. Each view contains an HTML/CSS mockup of the funnel page. Report Info: Offer Page Value Stack -> Goal: Compare -> Viz: Chart.js Bar Chart comparing "Total Value" to "Offer Price" to visually emphasize the discount. Report Info: Follow-up sequence -> Goal: Organize -> Viz: JS-powered accordion to present messages cleanly. Justification: These choices make the complex funnel strategy digestible and interactive. Confirmed NO SVG/Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #3D3D3D;
+        }
+        .step-item.active {
+            border-color: #F59E0B;
+            color: #F59E0B;
+            font-weight: 600;
+        }
+        .step-item.active .step-circle {
+            background-color: #F59E0B;
+            color: white;
+        }
+        .step-item .step-circle {
+            background-color: #E5E7EB;
+            color: #6B7280;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        .mockup-browser {
+            border: 8px solid #E5E7EB;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            overflow: hidden;
+            transform: scale(1);
+            transition: transform 0.3s ease;
+        }
+        .mockup-browser:hover {
+            transform: scale(1.02);
+        }
+        .mockup-header {
+            background-color: #E5E7EB;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .mockup-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .gemini-loader {
+            display: none;
+        }
+        .gemini-response {
+            background-color: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">FocusFuel</h1>
+            <p class="text-lg text-gray-600 mt-2">Interactive Funnel Explorer ✨</p>
+        </header>
+
+        <nav id="step-navigation" class="mb-8 md:mb-12">
+            <div class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
+            </div>
+        </nav>
+
+        <main id="content-area" class="bg-white rounded-2xl shadow-lg p-6 md:p-10 min-h-[60vh]">
+        </main>
+
+    </div>
+
+    <script>
+        const funnelData = [
+            {
+                name: "Landing Page",
+                objective: "Visitor ka Email ID ya WhatsApp number capture karna, unhein free value dekar.",
+                analysis: {
+                    title: "Strategy Breakdown",
+                    geminiPrompt: "Act as an expert Hinglish copywriter. For a landing page about a focus-improvement product called 'FocusFuel', generate 3 alternative, catchy headlines for the current one: 'Dhyan ki kami se pareshan? Ab paaye turant sukoon.' The new headlines should create curiosity and urgency.",
+                    points: [
+                        {
+                            heading: "Headline (Hook)",
+                            copy: "`Dhyan ki kami se pareshan? Ab paaye turant sukoon.`",
+                            trigger: "Instant Gratification: 'Turant sukoon' ka vaada deta hai."
+                        },
+                        {
+                            heading: "Call to Action",
+                            copy: "`Haan! Mujhe Free Focus Tips Bhejein`",
+                            trigger: "Zero Risk: 'Free' shabd user ka dar kam karta hai."
+                        },
+                        {
+                            heading: "Sub-headline",
+                            copy: "`Hum aapko 3 aisi aasaan techniques batayenge...`",
+                            trigger: "Curiosity: 3 techniques kya hain, yeh janne ki ichha jagata hai."
+                        }
+                    ]
+                },
+                mockupHtml: `
+                    <div class="mockup-browser">
+                        <div class="mockup-header">
+                            <div class="mockup-dot bg-red-400"></div>
+                            <div class="mockup-dot bg-yellow-400"></div>
+                            <div class="mockup-dot bg-green-400"></div>
+                        </div>
+                        <div class="bg-amber-50 text-center p-8 md:p-16">
+                            <h2 class="text-3xl md:text-4xl font-bold text-gray-800">Dhyan ki kami se pareshan? Ab paaye turant sukoon.</h2>
+                            <p class="text-gray-600 mt-4 md:max-w-2xl mx-auto">Hum aapko 3 aisi aasaan techniques batayenge jo aapka dhyan 2X kar dengi aur distractions ko jad se khatm kar dengi.</p>
+                            <div class="mt-8">
+                                <input type="text" placeholder="Apna best WhatsApp number ya Email ID daalein" class="w-full max-w-sm p-3 rounded-md border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none">
+                                <button class="w-full max-w-sm mt-4 bg-amber-500 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-600 transition-colors">Haan! Mujhe Free Focus Tips Bhejein</button>
+                                <p class="text-xs text-gray-500 mt-2">100% Free. Hum spam nahi karte.</p>
+                            </div>
+                        </div>
+                    </div>`
+            },
+            {
+                name: "Story/Bridge Page",
+                objective: "Visitor ke saath ek emotional connection banana, problem ko gehraai se samjhana, aur 'FocusFuel' ko solution ke roop mein pesh karna.",
+                analysis: {
+                    title: "Strategy Breakdown",
+                    geminiPrompt: "Act as an expert Hinglish storyteller. For a marketing page about 'FocusFuel', write a short, relatable 2-3 line story hook similar to 'Rohan hamesha deadlines miss kar deta tha...'. The story should resonate with students or young professionals in India struggling with distractions. Generate 2 different hooks.",
+                    points: [
+                         {
+                            heading: "Headline",
+                            copy: "`5 minute bhi focus na kar paane se lekar... kaam samay se pehle khatm karne tak.`",
+                            trigger: "Transformation: User ko 'before' aur 'after' state dikhakar aakarshit karta hai."
+                        },
+                        {
+                            heading: "Story Hook",
+                            copy: `"Rohan hamesha deadlines miss kar deta tha..."`,
+                            trigger: "Relatability: Ek aam kahani se audience khud ko jod paati hai."
+                        },
+                        {
+                            heading: "Product Sections",
+                            copy: "`Instant Digital Power Pack` & `Aapka Personal Focus Kit`",
+                            trigger: "Value Proposition: Digital aur Physical, dono ke fayde saaf-saaf batakar product ki value badhata hai."
+                        }
+                    ]
+                },
+                mockupHtml: `
+                    <div class="mockup-browser">
+                        <div class="mockup-header"><div class="mockup-dot bg-red-400"></div><div class="mockup-dot bg-yellow-400"></div><div class="mockup-dot bg-green-400"></div></div>
+                        <div class="bg-white p-6 md:p-10">
+                             <h2 class="text-2xl md:text-3xl font-bold text-center text-gray-800">5 minute bhi focus na kar paane se lekar... kaam samay se pehle khatm karne tak.</h2>
+                             <p class="text-center text-gray-500 mt-2">"Rohan hamesha deadlines miss kar deta tha. Projects aakhri raat tak talte rehte the..."</p>
+                             <div class="mt-8 h-48 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 font-semibold text-lg">[Visual Demo GIF: Distracted to Focused]</div>
+                             <div class="grid md:grid-cols-2 gap-8 mt-10">
+                                <div class="bg-sky-50 p-6 rounded-lg border border-sky-200">
+                                    <h3 class="font-bold text-xl text-sky-800">Instant Digital Power Pack</h3>
+                                    <p class="text-sky-700 mt-2 text-sm">Distraction-Blocking eBook, shaant karne wale Audio Sessions, aur Motivational Wallpapers.</p>
+                                </div>
+                                <div class="bg-lime-50 p-6 rounded-lg border border-lime-200">
+                                    <h3 class="font-bold text-xl text-lime-800">Aapka Personal Focus Kit</h3>
+                                    <p class="text-lime-700 mt-2 text-sm">Habit Cards, bina awaaz wala Focus Timer, aur ek premium Writing Pen.</p>
+                                </div>
+                             </div>
+                             <button class="w-full mt-10 bg-amber-500 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-600 transition-colors">Mujhe Batayein Yeh Kaise Kaam Karta Hai</button>
+                        </div>
+                    </div>`
+            },
+            {
+                name: "Offer Page",
+                objective: "Product ki value saaf-saaf dikhana, ek irresistible offer banana, aur khareedne ke liye urgency create karna.",
+                analysis: {
+                    title: "Strategy Breakdown",
+                    geminiPrompt: "Act as an expert Hinglish marketing copywriter. For a sales page, create 3 compelling and urgent Call-to-Action (CTA) button texts. The current CTA is 'Haan! Mujhe Abhi Shuru Karna Hai!'. The new CTAs should create a strong sense of getting immediate value and overcoming a pain point.",
+                    points: [
+                        {
+                            heading: "Value Stack",
+                            copy: "`Total Value: ₹3,096` vs `Offer: ₹999`",
+                            trigger: "Greed/Value: Bada discount dikhakar offer ko irresistible banata hai. Chart se yeh visually clear hota hai."
+                        },
+                        {
+                            heading: "Urgency",
+                            copy: "`[COUNTDOWN TIMER] Launch Offer sirf agle 2 ghante ke liye!`",
+                            trigger: "Urgency: Faisla lene ke liye samay seema tay karta hai."
+                        },
+                        {
+                            heading: "Scarcity & Bonus",
+                            copy: "`Pehle 50 logon ko 'Procrastination Killer' video course... FREE milega!`",
+                            trigger: "Scarcity: Limited bonus se turant action lene ke liye prerit karta hai."
+                        },
+                         {
+                            heading: "Guarantee",
+                            copy: "`Hamaari 30-Din 'No Questions Asked' Money-Back Guarantee.`",
+                            trigger: "Risk Reversal: Khareedari se juda har risk khatm kar deta hai."
+                        }
+                    ]
+                },
+                mockupHtml: `
+                    <div class="mockup-browser">
+                         <div class="mockup-header"><div class="mockup-dot bg-red-400"></div><div class="mockup-dot bg-yellow-400"></div><div class="mockup-dot bg-green-400"></div></div>
+                         <div class="bg-white p-6 md:p-10">
+                            <h2 class="text-2xl md:text-3xl font-bold text-center text-gray-800">Apni Productivity Unlock Karein</h2>
+                            <p class="text-center text-gray-500">Aaj Sirf Ek Choti Si Investment Mein</p>
+                            <div class="chart-container my-8">
+                                <canvas id="valueChart"></canvas>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xl">Total Value: <span class="line-through text-gray-500">₹3,096</span></p>
+                                <p class="text-4xl font-bold text-amber-600 mt-2">Sirf ₹999</p>
+                            </div>
+                            <div class="text-center bg-red-100 text-red-700 font-semibold p-3 rounded-lg my-6">
+                                [COUNTDOWN TIMER] Offer 01:59:45 mein samapt ho jayega!
+                            </div>
+                            <div class="text-center bg-green-100 text-green-700 p-3 rounded-lg my-6">
+                                ✨ **BONUS:** Pehle 50 logon ko 'Procrastination Killer' video course (₹599) bilkul FREE!
+                            </div>
+                            <div class="text-center my-6">
+                                <img src="https://placehold.co/150x50/f0f0f0/333?text=Guarantee+Seal" alt="Guarantee Seal" class="mx-auto">
+                            </div>
+                             <button class="w-full mt-4 bg-amber-500 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-600 transition-colors text-xl">Haan! Mujhe Abhi Shuru Karna Hai!</button>
+                         </div>
+                    </div>`
+            },
+            {
+                name: "Checkout Page",
+                objective: "Payment process ko behad aasaan aur tez banana taaki user beech mein na chhod de.",
+                analysis: {
+                    title: "Strategy Breakdown",
+                    geminiPrompt: "Act as an expert UX writer. For a checkout page, suggest two short, reassuring microcopy snippets to place near the 'Complete My Secure Order' button. These snippets should reduce last-minute hesitation and build trust. The language should be simple Hinglish.",
+                    points: [
+                        {
+                            heading: "Minimalism",
+                            copy: "`Poora Naam`, `WhatsApp Number`, `Email`",
+                            trigger: "Simplicity: Kam se kam form fields se user ka friction kam hota hai."
+                        },
+                        {
+                            heading: "Choice Architecture",
+                            copy: "`Full FocusFuel Bundle - ₹999 (Best Value!)`",
+                            trigger: "Default Bias: Sabse accha option pre-select karke user ko sahi disha mein guide kiya jaata hai."
+                        },
+                        {
+                            heading: "Trust",
+                            copy: "`Complete My Secure Order`",
+                            trigger: "Security: 'Secure' shabd ka istemal payment process mein vishwas badhata hai."
+                        }
+                    ]
+                },
+                mockupHtml: `
+                    <div class="mockup-browser">
+                        <div class="mockup-header"><div class="mockup-dot bg-red-400"></div><div class="mockup-dot bg-yellow-400"></div><div class="mockup-dot bg-green-400"></div></div>
+                        <div class="bg-gray-50 p-6 md:p-10">
+                           <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Bas Ek Aakhri Step!</h2>
+                           <div class="grid md:grid-cols-2 gap-8">
+                                <div>
+                                    <h3 class="font-semibold text-lg mb-4">Aapki Jaankari</h3>
+                                    <input type="text" placeholder="Poora Naam" class="w-full p-3 mb-4 rounded-md border border-gray-300">
+                                    <input type="text" placeholder="WhatsApp Number" class="w-full p-3 mb-4 rounded-md border border-gray-300">
+                                    <input type="email" placeholder="Email" class="w-full p-3 mb-4 rounded-md border border-gray-300">
+                                    <h3 class="font-semibold text-lg mb-4 mt-6">Payment Options</h3>
+                                    <div class="flex space-x-4">
+                                        <img src="https://placehold.co/60x40/f0f0f0/333?text=UPI" alt="UPI Logo" class="h-10">
+                                        <img src="https://placehold.co/60x40/f0f0f0/333?text=Paytm" alt="Paytm Logo" class="h-10">
+                                        <img src="https://placehold.co/60x40/f0f0f0/333?text=Card" alt="Card Logo" class="h-10">
+                                    </div>
+                                </div>
+                                <div class="bg-white p-6 rounded-lg border">
+                                    <h3 class="font-semibold text-lg mb-4">Order Summary</h3>
+                                    <div class="space-y-3">
+                                        <label class="flex items-center p-3 border rounded-md"><input type="radio" name="product" class="mr-3">Digital Pack Only - ₹499</label>
+                                        <label class="flex items-center p-3 border rounded-md"><input type="radio" name="product" class="mr-3">Physical Kit Only - ₹699</label>
+                                        <label class="flex items-center p-3 border-2 border-amber-500 bg-amber-50 rounded-md"><input type="radio" name="product" checked class="mr-3 text-amber-500 focus:ring-amber-500"><div><span class="font-bold">Full Bundle - ₹999</span><br><span class="text-sm text-amber-700">Best Value!</span></div></label>
+                                    </div>
+                                    <button class="w-full mt-6 bg-amber-500 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-600 transition-colors">Complete My Secure Order</button>
+                                </div>
+                           </div>
+                        </div>
+                    </div>`
+            },
+            {
+                name: "Thank You / Upsell",
+                objective: "Purchase ko confirm karna aur customer ki excitement ka fayda uthakar ek One-Time Offer (OTO) dena.",
+                analysis: {
+                    title: "Strategy Breakdown",
+                    geminiPrompt: "Act as a marketing strategist. For a Thank You page upsell, the current offer is a '1-on-1 Focus Coaching' program. Suggest one alternative upsell idea that is highly relevant to the main 'FocusFuel' product but might be a lower-priced, easier decision for the customer. Describe the new offer in Hinglish.",
+                    points: [
+                        {
+                            heading: "Confirmation",
+                            copy: "`Badhai Ho! Aapka order confirm ho gaya hai.`",
+                            trigger: "Reassurance: Customer ko tasalli deta hai ki unka purchase safal raha."
+                        },
+                        {
+                            heading: "Upsell Hook",
+                            copy: "`RUKIYE! Apne focus ko master level par le jaayein...`",
+                            trigger: "Intrigue & Urgency: User ka dhyan turant kheenchta hai."
+                        },
+                        {
+                            heading: "Upsell Offer",
+                            copy: "`Yeh offer is page ko band karte hi chala jaayega.`",
+                            trigger: "Scarcity & Loss Aversion: User ko lagta hai ki agar abhi action nahi liya to woh ek accha mauka kho dega."
+                        }
+                    ]
+                },
+                mockupHtml: `
+                    <div class="mockup-browser">
+                        <div class="mockup-header"><div class="mockup-dot bg-red-400"></div><div class="mockup-dot bg-yellow-400"></div><div class="mockup-dot bg-green-400"></div></div>
+                        <div class="bg-white text-center p-8 md:p-12">
+                            <span class="text-6xl">✓</span>
+                            <h2 class="text-3xl font-bold text-gray-800 mt-4">Badhai Ho! Aapka order confirm ho gaya hai.</h2>
+                            <p class="text-gray-600 mt-2">Aapke digital products 1 minute mein aapke WhatsApp/Email par aa jayenge.</p>
+                            <div class="my-10 border-t border-b border-dashed border-gray-300 py-8">
+                                <h3 class="text-2xl font-bold text-red-600">**RUKIYE!** Apne focus ko master level par le jaayein...</h3>
+                                <p class="mt-4">Kya aap hamare 1-on-1 'Focus Coaching' program mein shaamil hona chahenge? Sirf aaj, aur sirf aapke liye, yeh ₹5000 ka program sirf <strong>₹1999</strong> mein उपलब्ध hai.</p>
+                                <p class="text-sm font-semibold text-red-500 mt-2">Yeh offer is page ko band karte hi chala jaayega.</p>
+                                <button class="w-full max-w-md mt-6 bg-green-500 text-white font-bold py-3 px-6 rounded-md hover:bg-green-600 transition-colors">Haan! Mujhe Focus Coaching Chahiye!</button>
+                                <a href="#" class="block text-sm text-gray-500 mt-4 hover:underline">Nahi, dhanyavaad, main is kamaal ke offer ko jaane de raha/rahi hoon.</a>
+                            </div>
+                        </div>
+                    </div>`
+            },
+            {
+                name: "Follow-up Sequence",
+                objective: "Customer ko product use karne mein madad karna, unse relationship banana, aur future sales ke liye taiyaar karna.",
+                analysis: {
+                    title: "Strategy Breakdown",
+                    geminiPrompt: "Act as a customer relationship expert. For the 'Message 3 (7 Din Baad)' in a follow-up sequence, the goal is to ask for feedback. Write a short, friendly, and engaging message in Hinglish that makes the customer feel valued and encourages them to reply with their experience.",
+                    points: [
+                        {
+                            heading: "Instant Delivery",
+                            copy: "`Message 1 (Turant Baad)`",
+                            trigger: "Customer Delight: Turant access dekar customer ka anubhav accha banata hai."
+                        },
+                        {
+                            heading: "Proactive Support",
+                            copy: "`Message 3 (7 Din Baad)`",
+                            trigger: "Relationship Building: Feedback maangkar aur tips dekar company ko customer-centric dikhata hai."
+                        },
+                        {
+                            heading: "Incentivized Referral",
+                            copy: "`Message 4 (15 Din Baad)`",
+                            trigger: "Advocacy & Retention: Review ke badle discount dekar customer ko brand ka pracharak aur repeat buyer banata hai."
+                        }
+                    ]
+                },
+                mockupHtml: `
+                    <div class="mockup-browser">
+                        <div class="mockup-header"><div class="mockup-dot bg-red-400"></div><div class="mockup-dot bg-yellow-400"></div><div class="mockup-dot bg-green-400"></div></div>
+                        <div id="accordion-container" class="bg-white p-6 md:p-10">
+                            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Follow-up Communication Plan</h2>
+                             <div class="space-y-4">
+                                <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center bg-gray-50 hover:bg-gray-100">
+                                        <span>Message 1 (Turant Baad): Digital Access</span>
+                                        <span class="accordion-icon text-xl">+</span>
+                                    </button>
+                                    <div class="accordion-content hidden p-4 border-t">
+                                        <p><strong>Subject:</strong> Aapka FocusFuel Digital Access Yahaan Hai!</p>
+                                        <p><strong>Content:</strong> Saare download links aur shuruaat karne ke liye ek chhota 'Welcome' video.</p>
+                                    </div>
+                                </div>
+                               <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center bg-gray-50 hover:bg-gray-100">
+                                        <span>Message 2 (2 Din Baad): Dispatch Update</span>
+                                        <span class="accordion-icon text-xl">+</span>
+                                    </button>
+                                    <div class="accordion-content hidden p-4 border-t">
+                                        <p><strong>Subject:</strong> Good News! Aapka FocusFuel Kit Raaste Mein Hai!</p>
+                                        <p><strong>Content:</strong> Tracking ID aur link.</p>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center bg-gray-50 hover:bg-gray-100">
+                                        <span>Message 3 (7 Din Baad): Feedback</span>
+                                        <span class="accordion-icon text-xl">+</span>
+                                    </button>
+                                    <div class="accordion-content hidden p-4 border-t">
+                                        <p><strong>Subject:</strong> FocusFuel ke saath aapka pehla hafta...</p>
+                                        <p><strong>Content:</strong> Puchhein sab kaisa chal raha hai. Ek pro-tip share karein. Feedback maangein.</p>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center bg-gray-50 hover:bg-gray-100">
+                                        <span>Message 4 (15 Din Baad): Review Request</span>
+                                        <span class="accordion-icon text-xl">+</span>
+                                    </button>
+                                    <div class="accordion-content hidden p-4 border-t">
+                                        <p><strong>Subject:</strong> Ek chhota sa gift aapke liye!</p>
+                                        <p><strong>Content:</strong> Ek testimonial ya review likhne ke liye request karein. Badle mein, agle order par 15% discount ka coupon code dein.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`
+            }
+        ];
+
+        const navigationContainer = document.querySelector('#step-navigation > div');
+        const contentArea = document.getElementById('content-area');
+        let currentChart = null;
+
+        function renderNavigation() {
+            funnelData.forEach((step, index) => {
+                const stepElement = document.createElement('button');
+                stepElement.className = 'step-item flex items-center p-2 border-b-4 border-transparent transition-colors duration-300';
+                stepElement.dataset.index = index;
+                stepElement.innerHTML = `
+                    <span class="step-circle w-8 h-8 rounded-full flex items-center justify-center font-bold mr-3 transition-colors">${index + 1}</span>
+                    <span>${step.name}</span>
+                `;
+                navigationContainer.appendChild(stepElement);
+            });
+        }
+
+        function renderStep(index) {
+            const stepData = funnelData[index];
+
+            contentArea.innerHTML = `
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-800">${index+1}. ${stepData.name}</h2>
+                    <p class="text-gray-600 mt-2 max-w-3xl mx-auto">${stepData.objective}</p>
+                </div>
+                <div class="grid lg:grid-cols-3 gap-8 items-start">
+                    <div class="lg:col-span-2">
+                        ${stepData.mockupHtml}
+                    </div>
+                    <div class="lg:col-span-1 bg-amber-50 rounded-xl p-6 border border-amber-200">
+                        <h3 class="font-bold text-xl mb-4 text-amber-800">${stepData.analysis.title}</h3>
+                        <ul class="space-y-4">
+                            ${stepData.analysis.points.map(point => `
+                                <li class="border-l-4 border-amber-400 pl-4">
+                                    <h4 class="font-semibold text-gray-700">${point.heading}</h4>
+                                    <p class="text-sm text-gray-500 italic my-1">${point.copy}</p>
+                                    <p class="text-sm text-amber-700">${point.trigger}</p>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <div class="mt-6">
+                            <button id="gemini-generate-btn" data-index="${index}" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:shadow-lg transition-shadow">
+                                ✨ Naye Ideas Generate Karein
+                            </button>
+                            <div id="gemini-loader" class="gemini-loader text-center mt-4">
+                                <p class="text-sm text-gray-600">Ideas generate ho rahe hain...</p>
+                            </div>
+                            <div id="gemini-response-container"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+
+            if (stepData.name === "Offer Page") {
+                renderValueChart();
+            }
+            
+            if (stepData.name === "Follow-up Sequence") {
+                setupAccordion();
+            }
+
+            document.querySelectorAll('.step-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+            
+            document.getElementById('gemini-generate-btn').addEventListener('click', handleGenerateIdeas);
+        }
+
+        async function handleGenerateIdeas(event) {
+            const index = event.target.dataset.index;
+            const prompt = funnelData[index].analysis.geminiPrompt;
+            const loader = document.getElementById('gemini-loader');
+            const responseContainer = document.getElementById('gemini-response-container');
+            const button = event.target;
+
+            loader.style.display = 'block';
+            responseContainer.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                const generatedText = await callGeminiAPI(prompt);
+                displayGeminiResponse(generatedText, responseContainer);
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                responseContainer.innerHTML = `<div class="gemini-response text-red-700"><p>Ek error aa gayi. Please thodi der baad try karein.</p></div>`;
+            } finally {
+                loader.style.display = 'none';
+                button.disabled = false;
+            }
+        }
+        
+        async function callGeminiAPI(prompt, retries = 3, delay = 1000) {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topP: 1,
+                    topK: 1,
+                    maxOutputTokens: 256,
+                },
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content?.parts?.[0]?.text) {
+                         return result.candidates[0].content.parts[0].text;
+                    } else {
+                         throw new Error("Invalid response structure from Gemini API");
+                    }
+
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(res => setTimeout(res, delay * Math.pow(2, i)));
+                }
+            }
+        }
+
+        function displayGeminiResponse(text, container) {
+            const formattedText = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
+                .replace(/\* (.*?)(?=\n\* |\n\n|$)/g, '<li class="ml-4 mb-2 p-2 bg-white rounded shadow-sm">$1</li>')
+                .replace(/\n/g, '<br>');
+            
+            container.innerHTML = `<div class="gemini-response"><ul>${formattedText}</ul></div>`;
+        }
+
+        function renderValueChart() {
+            const ctx = document.getElementById('valueChart').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Total Value', 'Your Price'],
+                    datasets: [{
+                        label: 'Price in ₹',
+                        data: [3096, 999],
+                        backgroundColor: [
+                            'rgba(217, 119, 6, 0.2)',
+                            'rgba(245, 158, 11, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(217, 119, 6, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `₹${context.raw}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function setupAccordion() {
+            const accordionItems = document.querySelectorAll('.accordion-item');
+            accordionItems.forEach(item => {
+                const header = item.querySelector('.accordion-header');
+                const content = item.querySelector('.accordion-content');
+                const icon = item.querySelector('.accordion-icon');
+
+                header.addEventListener('click', () => {
+                    const isVisible = !content.classList.contains('hidden');
+                    
+                    document.querySelectorAll('.accordion-content').forEach(c => c.classList.add('hidden'));
+                    document.querySelectorAll('.accordion-icon').forEach(i => i.textContent = '+');
+                    
+                    if (!isVisible) {
+                        content.classList.remove('hidden');
+                        icon.textContent = '-';
+                    }
+                });
+            });
+        }
+
+        navigationContainer.addEventListener('click', (e) => {
+            const stepItem = e.target.closest('.step-item');
+            if (stepItem) {
+                const index = parseInt(stepItem.dataset.index, 10);
+                renderStep(index);
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            renderNavigation();
+            renderStep(0);
+        });
+
+    </script>
+</body>
+</html>
